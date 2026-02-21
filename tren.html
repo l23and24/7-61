@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тренажер: Сила тяжіння (Анімація та Звук)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Анімований градієнтний фон */
+        body {
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+        }
+
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .input-correct { border-color: #10b981 !important; background-color: #ecfdf5; animation: pulse-green 0.5s; }
+        .input-wrong { border-color: #ef4444 !important; background-color: #fef2f2; animation: shake 0.4s; }
+        
+        @keyframes pulse-green {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body class="min-h-screen py-10 px-4 flex items-center justify-center">
+
+    <div class="max-w-5xl w-full glass-panel rounded-3xl shadow-2xl overflow-hidden border border-white/20">
+        <!-- Header -->
+        <div class="bg-indigo-700/90 p-8 text-white text-center relative">
+            <h1 class="text-3xl font-bold tracking-tight">🚀 Майстер Сили Тяжіння</h1>
+            <p class="mt-2 text-indigo-100 opacity-90 text-lg">Розв'яжи всі 12 задач із задоволенням!</p>
+            
+            <!-- Audio Toggle -->
+            <button id="audio-toggle" class="absolute top-4 right-4 bg-white/20 hover:bg-white/30 p-2 rounded-full transition-all" title="Увімкнути звук">
+                <span id="speaker-icon">🔇</span>
+            </button>
+
+            <div class="mt-6 flex flex-wrap justify-center gap-4">
+                <span class="bg-indigo-800/50 px-4 py-2 rounded-lg border border-indigo-400 text-sm">F = m · g</span>
+                <span class="bg-indigo-800/50 px-4 py-2 rounded-lg border border-indigo-400 text-sm">g ≈ 10 Н/кг</span>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="bg-slate-200 h-3 w-full">
+            <div id="progress-bar" class="bg-emerald-500 h-full w-0 transition-all duration-700 ease-out shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+        </div>
+
+        <div class="p-6 md:p-8">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-separate border-spacing-y-3">
+                    <thead>
+                        <tr class="text-slate-500 text-sm uppercase tracking-wider">
+                            <th class="px-4 py-2">№</th>
+                            <th class="px-4 py-2">Маса (m)</th>
+                            <th class="px-4 py-2 text-center">g</th>
+                            <th class="px-4 py-2">Сила (F<sub>тяж</sub>)</th>
+                            <th class="px-4 py-2 text-right">Дія</th>
+                        </tr>
+                    </thead>
+                    <tbody id="task-list">
+                        <!-- Сюди JS додасть рядки -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Global Feedback -->
+        <div id="feedback" class="mx-8 mb-8 p-4 rounded-xl hidden border-2 text-center font-medium transition-all"></div>
+
+        <!-- Unit Helper -->
+        <div class="bg-slate-50/80 p-8 border-t border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+                <h4 class="font-bold text-indigo-900 mb-2 uppercase text-xs">Маса (m)</h4>
+                <ul class="text-slate-600 text-xs space-y-1">
+                    <li>1 т = 1000 кг | 1 кг = 1000 г</li>
+                    <li>1 г = 0.001 кг | 1 мг = 0.000001 кг</li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-bold text-indigo-900 mb-2 uppercase text-xs">Сила (F)</h4>
+                <ul class="text-slate-600 text-xs space-y-1">
+                    <li>1 кН = 1000 Н | 1 мН = 0.001 Н</li>
+                    <li>1 МН = 1 000 000 Н</li>
+                </ul>
+            </div>
+            <div class="bg-indigo-50/50 p-4 rounded-lg border border-indigo-100">
+                <p class="text-indigo-800 text-[11px] leading-tight italic">
+                    <strong>Музика:</strong> Натисніть на значок гучномовця вгорі, щоб активувати звукові ефекти.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Audio Logic
+        let audioContext;
+        let isAudioOn = false;
+        const toggleBtn = document.getElementById('audio-toggle');
+        const speakerIcon = document.getElementById('speaker-icon');
+
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        toggleBtn.onclick = () => {
+            initAudio();
+            isAudioOn = !isAudioOn;
+            speakerIcon.innerText = isAudioOn ? "🔊" : "🔇";
+            toggleBtn.classList.toggle('bg-emerald-500', isAudioOn);
+        };
+
+        function playTone(freq, duration, type = 'sine') {
+            if (!isAudioOn) return;
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioContext.currentTime);
+            gain.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            osc.start();
+            osc.stop(audioContext.currentTime + duration);
+        }
+
+        const tasks = [
+            { id: 1, m: "150 г", g: "10", f_label: "? Н", target: "f", answer: 1.5, hint: "150 г = 0.15 кг. 0.15 * 10 = 1.5 Н" },
+            { id: 2, m: "? г", g: "10", f_label: "20 кН", target: "m", answer: 2000000, hint: "20 кН = 20 000 Н. m = 2000 кг = 2 000 000 г" },
+            { id: 3, m: "? кг", g: "10", f_label: "1500 мН", target: "m", answer: 0.15, hint: "1500 мН = 1.5 Н. m = 1.5 / 10 = 0.15 кг" },
+            { id: 4, m: "5 т", g: "10", f_label: "? кН", target: "f", answer: 50, hint: "5 т = 5000 кг. F = 5000 * 10 = 50 000 Н = 50 кН" },
+            { id: 5, m: "? кг", g: "10", f_label: "4 кН", target: "m", answer: 400, hint: "4 кН = 4000 Н. m = 400 кг" },
+            { id: 6, m: "250 мг", g: "10", f_label: "? мН", target: "f", answer: 2.5, hint: "250 мг = 0.00025 кг. F = 0.0025 Н = 2.5 мН" },
+            { id: 7, m: "? кг", g: "10", f_label: "0.05 кН", target: "m", answer: 5, hint: "0.05 кН = 50 Н. m = 50 / 10 = 5 кг" },
+            { id: 8, m: "0.4 т", g: "10", f_label: "? Н", target: "f", answer: 4000, hint: "0.4 т = 400 кг. F = 400 * 10 = 4000 Н" },
+            { id: 9, m: "? г", g: "10", f_label: "1 Н", target: "m", answer: 100, hint: "F = 1 Н. m = 0.1 кг = 100 г" },
+            { id: 10, m: "1.2 кг", g: "10", f_label: "? мН", target: "f", answer: 12000, hint: "F = 12 Н = 12 000 мН" },
+            { id: 11, m: "0.008 т", g: "10", f_label: "? Н", target: "f", answer: 80, hint: "0.008 т = 8 кг. F = 80 Н" },
+            { id: 12, m: "? т", g: "10", f_label: "0.1 МН", target: "m", answer: 10, hint: "0.1 МН = 100 000 Н. m = 10 000 кг = 10 т" }
+        ];
+
+        let completed = new Set();
+
+        function renderTasks() {
+            const container = document.getElementById('task-list');
+            container.innerHTML = tasks.map(t => `
+                <tr class="bg-white/50 border border-slate-100 rounded-xl transition-all hover:bg-white">
+                    <td class="px-4 py-4 font-bold text-indigo-300 text-xs">${t.id}</td>
+                    <td class="px-4 py-4">
+                        ${t.target === 'm' 
+                            ? `<div class="flex items-center gap-1"><input type="number" id="input-${t.id}" class="w-24 p-2 border border-slate-200 rounded-lg text-center font-bold outline-none focus:border-indigo-500" placeholder="?"><span class="text-slate-400 font-bold">${t.m.split(' ')[1]}</span></div>` 
+                            : `<span class="font-semibold text-slate-700">${t.m}</span>`}
+                    </td>
+                    <td class="px-4 py-4 text-center text-slate-400 font-mono text-xs italic">${t.g} Н/кг</td>
+                    <td class="px-4 py-4">
+                        ${t.target === 'f' 
+                            ? `<div class="flex items-center gap-1"><input type="number" id="input-${t.id}" class="w-24 p-2 border border-slate-200 rounded-lg text-center font-bold outline-none focus:border-indigo-500" placeholder="?"><span class="text-slate-400 font-bold">${t.f_label.split(' ')[1]}</span></div>` 
+                            : `<span class="font-semibold text-slate-700">${t.f_label}</span>`}
+                    </td>
+                    <td class="px-4 py-4 text-right">
+                        <button onclick="checkTask(${t.id})" id="btn-${t.id}" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-lg transition-all active:scale-95">Перевірити</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        window.checkTask = function(id) {
+            const task = tasks.find(t => t.id === id);
+            const input = document.getElementById(`input-${id}`);
+            const feedback = document.getElementById('feedback');
+            const userVal = parseFloat(input.value);
+
+            if (isNaN(userVal)) return;
+
+            if (Math.abs(userVal - task.answer) < 0.0001) {
+                input.className = "w-24 p-2 border rounded-lg text-center font-bold input-correct";
+                completed.add(id);
+                showFeedback(true, task.hint);
+                updateProgress();
+                playTone(660, 0.1, 'square');
+                setTimeout(() => playTone(880, 0.2, 'square'), 100);
+                
+                const btn = document.getElementById(`btn-${id}`);
+                btn.innerHTML = "ВІРНО";
+                btn.disabled = true;
+                btn.className = "bg-emerald-500 text-white text-[10px] font-bold px-4 py-2 rounded-lg opacity-80 cursor-default";
+            } else {
+                input.className = "w-24 p-2 border rounded-lg text-center font-bold input-wrong";
+                showFeedback(false, "Помилка в розрахунках або одиницях СІ.");
+                playTone(220, 0.3, 'sawtooth');
+                input.focus();
+            }
+        };
+
+        function showFeedback(isCorrect, text) {
+            const fb = document.getElementById('feedback');
+            fb.classList.remove('hidden', 'fade-in');
+            void fb.offsetWidth; 
+            fb.classList.add('fade-in');
+            
+            if (isCorrect) {
+                fb.className = "mx-8 mb-8 p-4 rounded-xl border-2 bg-emerald-50 border-emerald-200 text-emerald-800 block fade-in shadow-sm";
+                fb.innerHTML = `🌟 <strong>Молодець!</strong> ${text}`;
+            } else {
+                fb.className = "mx-8 mb-8 p-4 rounded-xl border-2 bg-rose-50 border-rose-200 text-rose-800 block fade-in shadow-sm";
+                fb.innerHTML = `🧐 <strong>Ой!</strong> ${text}`;
+            }
+        }
+
+        function updateProgress() {
+            const percent = (completed.size / tasks.length) * 100;
+            document.getElementById('progress-bar').style.width = percent + '%';
+            
+            if (completed.size === tasks.length) {
+                setTimeout(() => {
+                    playTone(523.25, 0.1);
+                    playTone(659.25, 0.1);
+                    playTone(783.99, 0.3);
+                    alert("🏆 ВІТАЄМО! Ви успішно розв'язали всі завдання!");
+                }, 500);
+            }
+        }
+
+        renderTasks();
+    </script>
+</body>
+</html>
